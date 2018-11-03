@@ -16,10 +16,10 @@ namespace Hsm
 
     public class Version
     {
-        public static int Major = 3;
-        public static int Minor = 1;
-        public static int Patch = 0;
-        public static string String = string.Format("{0}.{1}.{2}", Major, Minor, Patch);
+        public const int Major = 3;
+        public const int Minor = 1;
+        public const int Patch = 0;
+        public static readonly string String = string.Format("{0}.{1}.{2}", Major, Minor, Patch);
     }
 
     // Client code must provide their own implementation of this class
@@ -229,6 +229,9 @@ namespace Hsm
 
     public struct Transition
     {
+        // As Transition.None() is often used, preallocate it only once
+        private static readonly Transition _sNoneTransition = new Transition(TransitionType.None, null, null);
+
         public TransitionType TransitionType;
         public Type TargetStateType;
         public object[] Args;
@@ -249,7 +252,7 @@ namespace Hsm
 
         public static Transition None()
         {
-            return new Transition(TransitionType.None, null, null);
+            return _sNoneTransition; 
         }
 
         // Inner transition functions
