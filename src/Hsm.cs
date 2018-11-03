@@ -48,6 +48,7 @@ namespace Hsm
         public virtual void OnExit() { }
         public virtual Transition GetTransition() { return Transition.None(); }
         public virtual void Update(float aDeltaTime) { }
+        public virtual void LateUpdate() { } // Processed in the same frame as `Update`, but later (useful for Unity's LateUpdate)
 
         [Obsolete("Use GetTransition instead")]
         public virtual Transition EvaluateTransitions() { return GetTransition(); }
@@ -177,7 +178,7 @@ namespace Hsm
         // Do not access this value from states - would normally be private if I could declare friendship
         internal T __ValueToBeAccessedByStateMachineOnly;
 
-        public StateValue() {}
+        public StateValue() { }
         public StateValue(T aInitialValue) { __ValueToBeAccessedByStateMachineOnly = aInitialValue; }
 
         // Use to read value of StateValue
@@ -439,6 +440,14 @@ namespace Hsm
         {
             ProcessStateTransitions();
             UpdateStates(aDeltaTime);
+        }
+
+        public void LateUpdate()
+        {
+            foreach (var state in mStateStack)
+            {
+                state.LateUpdate();
+            }
         }
 
         public void ProcessStateTransitions()
