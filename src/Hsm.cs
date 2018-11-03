@@ -50,21 +50,13 @@ namespace Hsm
         public virtual void LateUpdate() { } // Processed in the same frame as `Update`, but later (useful for Unity's LateUpdate)
 
         public override string ToString() => GetType().ToString();
-
-        [Obsolete("Use GetTransition instead")]
-        public virtual Transition EvaluateTransitions() => GetTransition();
-
-        [Obsolete("Use Update instead")]
-        public virtual void PerformStateActions(float aDeltaTime) => Update(aDeltaTime);
+        
 
         ///////////////////////////////
         // Accessors
         ///////////////////////////////
 
         public StateMachine StateMachine => mOwnerStateMachine;
-
-        [Obsolete("Use StateMachine property instead")]
-        public StateMachine OwnerStateMachine => StateMachine;
 
         public StateType FindState<StateType>() where StateType : State => mOwnerStateMachine.FindState<StateType>();
         public StateType GetState<StateType>() where StateType : State => mOwnerStateMachine.GetState<StateType>();
@@ -104,9 +96,6 @@ namespace Hsm
         // StateValues
         ///////////////////////////////
 
-        [Obsolete("Use SetStateValue instead", true)]
-        public void SetAttribute<T>(StateValue<T> aStateValue, T aValue) where T : struct { }
-
         // Use to set value-type StateValue
         public void SetStateValue<T>(StateValue<T> aStateValue, T aValue)
         {
@@ -145,8 +134,6 @@ namespace Hsm
         }
     }
 
-    [Obsolete("Use StateWithOwner instead", true)]
-    public class StateT<OwnerType> : State { }
 
     // Utility base class for states that should be used to access Owner/Data more easily
     public class StateWithOwner<OwnerType> : State
@@ -167,9 +154,6 @@ namespace Hsm
     ///////////////////////////////////////////////////////////////////////////
     // StateValue
     ///////////////////////////////////////////////////////////////////////////
-
-    [Obsolete("Renamed to StateValue<T> (Search & Replace \"Attribute\" with \"StateValue\")", true)]
-    public class Attribute<T> { }
 
     public class StateValue<T>
     {
@@ -363,9 +347,6 @@ namespace Hsm
         public object Owner { get; private set; } = null;
         public TraceLevel TraceLevel { get; set; } = TraceLevel.None;
 
-        [Obsolete("Use TraceLevel instead")]
-        public int DebugLogLevel { get { return (int)TraceLevel; } set { TraceLevel = (TraceLevel)value; } }
-
         public void Init<InitialStateType>(object aOwner = null) where InitialStateType : State
             => Init(typeof(InitialStateType), aOwner);
 
@@ -422,22 +403,8 @@ namespace Hsm
         {
             foreach (State state in mStateStack)
             {
-#pragma warning disable CS0618
-                state.PerformStateActions(aDeltaTime);
-#pragma warning restore CS0618
+                state.Update(aDeltaTime);
             }
-        }
-
-        [Obsolete("Use ProcessStateTransitions instead")]
-        public void EvaluateStateTransitions()
-        {
-            ProcessStateTransitions();
-        }
-
-        [Obsolete("Use UpdateStates instead")]
-        public void PerformStateActions(float aDeltaTime)
-        {
-            UpdateStates(aDeltaTime);
         }
 
         public StateType FindState<StateType>() where StateType : State
@@ -649,9 +616,8 @@ namespace Hsm
             for (int currDepth = 0; currDepth < mStateStack.Count; ++currDepth)
             {
                 State currState = mStateStack[currDepth];
-#pragma warning disable CS0618
-                Transition trans = currState.EvaluateTransitions();
-#pragma warning restore CS0618
+                Transition trans = currState.GetTransition();
+
                 switch (trans.TransitionType)
                 {
                     case TransitionType.None:
