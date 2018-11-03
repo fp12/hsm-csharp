@@ -10,16 +10,15 @@ namespace Hsm
 {
     using System;
     using System.Collections.Generic;
-    using System.Reflection;
     using System.Diagnostics;
-    using System.Text;
+    using System.Reflection;
 
     public class Version
     {
         public const int Major = 3;
         public const int Minor = 1;
         public const int Patch = 0;
-        public static readonly string String = string.Format("{0}.{1}.{2}", Major, Minor, Patch);
+        public static readonly string String = $"{Major}.{Minor}.{Patch}";
     }
 
     // Client code must provide their own implementation of this class
@@ -36,7 +35,7 @@ namespace Hsm
     public class State
     {
         internal StateMachine mOwnerStateMachine;
-        internal List<StateValueResetter> mStateValueResetters = null;
+        internal List<IStateValueResetter> mStateValueResetters = null;
         internal int mStackDepth;
 
         ///////////////////////////////
@@ -46,35 +45,36 @@ namespace Hsm
         public virtual void OnEnter() { }
         public virtual void OnEnter(object[] aArgs) { }
         public virtual void OnExit() { }
-        public virtual Transition GetTransition() { return Transition.None(); }
+        public virtual Transition GetTransition() => Transition.None();
         public virtual void Update(float aDeltaTime) { }
         public virtual void LateUpdate() { } // Processed in the same frame as `Update`, but later (useful for Unity's LateUpdate)
 
+        public override string ToString() => GetType().ToString();
+
         [Obsolete("Use GetTransition instead")]
-        public virtual Transition EvaluateTransitions() { return GetTransition(); }
+        public virtual Transition EvaluateTransitions() => GetTransition();
 
         [Obsolete("Use Update instead")]
-        public virtual void PerformStateActions(float aDeltaTime) { Update(aDeltaTime); }
-
+        public virtual void PerformStateActions(float aDeltaTime) => Update(aDeltaTime);
 
         ///////////////////////////////
         // Accessors
         ///////////////////////////////
 
-        public StateMachine StateMachine { get { return mOwnerStateMachine; } }
+        public StateMachine StateMachine => mOwnerStateMachine;
 
         [Obsolete("Use StateMachine property instead")]
-        public StateMachine OwnerStateMachine { get { return StateMachine; } }
+        public StateMachine OwnerStateMachine => StateMachine;
 
-        public StateType FindState<StateType>() where StateType : State { return mOwnerStateMachine.FindState<StateType>(); }
-        public StateType GetState<StateType>() where StateType : State { return mOwnerStateMachine.GetState<StateType>(); }
-        public bool IsInState<StateType>() where StateType : State { return FindState<StateType>() != null; }
+        public StateType FindState<StateType>() where StateType : State => mOwnerStateMachine.FindState<StateType>();
+        public StateType GetState<StateType>() where StateType : State => mOwnerStateMachine.GetState<StateType>();
+        public bool IsInState<StateType>() where StateType : State => FindState<StateType>() != null;
 
-        public StateType FindOuterState<StateType>() where StateType : State { return mOwnerStateMachine.FindOuterStateFromDepth<StateType>(mStackDepth); }
+        public StateType FindOuterState<StateType>() where StateType : State => mOwnerStateMachine.FindOuterStateFromDepth<StateType>(mStackDepth);
         public StateType GetOuterState<StateType>() where StateType : State
         {
             StateType result = FindOuterState<StateType>();
-            Debug.Assert(result != null, string.Format("Failed to get outer state on stack: {0}", typeof(StateType)));
+            Debug.Assert(result != null, $"Failed to get outer state on stack: {typeof(StateType)}");
             return result;
         }
         public bool IsInOuterState<StateType>() where StateType : State { return FindOuterState<StateType>() != null; }
@@ -83,21 +83,21 @@ namespace Hsm
         public StateType GetInnerState<StateType>() where StateType : State
         {
             StateType result = FindInnerState<StateType>();
-            Debug.Assert(result != null, string.Format("Failed to get inner state on stack: {0}", typeof(StateType)));
+            Debug.Assert(result != null, $"Failed to get inner state on stack: {typeof(StateType)}");
             return result;
         }
-        public bool IsInInnerState<StateType>() where StateType : State { return FindInnerState<StateType>() != null; }
+        public bool IsInInnerState<StateType>() where StateType : State => FindInnerState<StateType>() != null;
 
-        public StateType FindImmediateInnerState<StateType>() where StateType : State { return FindImmediateInnerState<StateType>(); }
+        public StateType FindImmediateInnerState<StateType>() where StateType : State => FindImmediateInnerState<StateType>();
         public StateType GetImmediateInnerState<StateType>() where StateType : State
         {
             StateType result = FindImmediateInnerState<StateType>();
-            Debug.Assert(result != null, string.Format("Failed to get immeidate inner state on stack: {0}", typeof(StateType)));
+            Debug.Assert(result != null, $"Failed to get immediate inner state on stack: {typeof(StateType)}");
             return result;
         }
-        public bool IsInImmediateInnerState<StateType>() where StateType : State { return FindImmediateInnerState<StateType>() != null; }
+        public bool IsInImmediateInnerState<StateType>() where StateType : State => FindImmediateInnerState<StateType>() != null;
         // Returns generic State, might be useful to query whether current state has an inner state at all
-        public State FindImmediateInnerState() { return mOwnerStateMachine.FindStateAtDepth(mStackDepth + 1); }
+        public State FindImmediateInnerState() => mOwnerStateMachine.FindStateAtDepth(mStackDepth + 1);
 
 
         ///////////////////////////////
@@ -121,7 +121,7 @@ namespace Hsm
             if (mStateValueResetters == null)
                 return;
 
-            foreach (StateValueResetter resetter in mStateValueResetters)
+            foreach (var resetter in mStateValueResetters)
                 resetter.Reset();
 
             mStateValueResetters.Clear();
@@ -131,14 +131,13 @@ namespace Hsm
         {
             if (mStateValueResetters == null) // First time, lazily create list
             {
-                mStateValueResetters = new List<StateValueResetter>();
+                mStateValueResetters = new List<IStateValueResetter>();
             }
             else
             {
-                foreach (StateValueResetter resetter in mStateValueResetters)
+                foreach (var resetter in mStateValueResetters)
                 {
-                    var r = resetter as StateValueResetterT<T>;
-                    if (r != null && r.StateValue == aStateValue)
+                    if (resetter is StateValueResetterT<T> r && r.StateValue == aStateValue)
                         return true;
                 }
             }
@@ -147,8 +146,7 @@ namespace Hsm
     }
 
     [Obsolete("Use StateWithOwner instead", true)]
-    public class StateT<OwnerType> : State
-    { }
+    public class StateT<OwnerType> : State { }
 
     // Utility base class for states that should be used to access Owner/Data more easily
     public class StateWithOwner<OwnerType> : State
@@ -179,41 +177,37 @@ namespace Hsm
         internal T __ValueToBeAccessedByStateMachineOnly;
 
         public StateValue() { }
-        public StateValue(T aInitialValue) { __ValueToBeAccessedByStateMachineOnly = aInitialValue; }
+        public StateValue(T aInitialValue) => __ValueToBeAccessedByStateMachineOnly = aInitialValue;
 
         // Use to read value of StateValue
-        public T Value { get { return __ValueToBeAccessedByStateMachineOnly; } }
+        public T Value => __ValueToBeAccessedByStateMachineOnly;
 
-        public static implicit operator T(StateValue<T> aStateValue)
-        {
-            return aStateValue.Value;
-        }
+        public static implicit operator T(StateValue<T> aStateValue) => aStateValue.Value;
     }
 
-    internal class StateValueResetter
+    internal interface IStateValueResetter
     {
         //@LAME: Can't use destructors like in C++
-        public virtual void Reset() { }
+        void Reset();
     }
 
-    internal class StateValueResetterT<T> : StateValueResetter
+    internal class StateValueResetterT<T> : IStateValueResetter
     {
-        private StateValue<T> mStateValue;
-        private T mOriginalValue;
+        private readonly T mOriginalValue;
+
+        public StateValue<T> StateValue { get; private set; }
 
         public StateValueResetterT(StateValue<T> aStateValue)
         {
-            mStateValue = aStateValue;
+            StateValue = aStateValue;
             mOriginalValue = aStateValue.__ValueToBeAccessedByStateMachineOnly;
         }
 
-        public override void Reset()
+        public void Reset()
         {
-            mStateValue.__ValueToBeAccessedByStateMachineOnly = mOriginalValue;
-            mStateValue = null; //@TODO: Add Dispose (or Finalize) that asserts that this is null (that Reset got called)
+            StateValue.__ValueToBeAccessedByStateMachineOnly = mOriginalValue;
+            StateValue = null; //@TODO: Add Dispose (or Finalize) that asserts that this is null (that Reset got called)
         }
-
-        public StateValue<T> StateValue { get { return mStateValue; } }
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -233,8 +227,8 @@ namespace Hsm
         // As Transition.None() is often used, preallocate it only once
         private static readonly Transition _sNoneTransition = new Transition(TransitionType.None, null, null);
 
-        public TransitionType TransitionType;
-        public Type TargetStateType;
+        public readonly TransitionType TransitionType;
+        public readonly Type TargetStateType;
         public object[] Args;
 
         public Transition(TransitionType aTransitionType, Type aTargetStateType, object[] aArgs)
@@ -244,149 +238,110 @@ namespace Hsm
             Args = aArgs;
         }
 
-        public override string ToString()
-        {
-            return TransitionType.ToString();
-        }
+        public override string ToString() => TransitionType.ToString();
 
         // None transition functions
 
-        public static Transition None()
-        {
-            return _sNoneTransition; 
-        }
+        public static Transition None() => _sNoneTransition;
 
         // Inner transition functions
 
         public static Transition Inner(Type aTargetStateType)
-        {
-            return new Transition(TransitionType.Inner, aTargetStateType, null);
-        }
+            => new Transition(TransitionType.Inner, aTargetStateType, null);
+
         public static Transition Inner(Type aTargetStateType, object arg1)
-        {
-            return new Transition(TransitionType.Inner, aTargetStateType, new object[] { arg1 });
-        }
+            => new Transition(TransitionType.Inner, aTargetStateType, new object[] { arg1 });
+
         public static Transition Inner(Type aTargetStateType, object arg1, object arg2)
-        {
-            return new Transition(TransitionType.Inner, aTargetStateType, new object[] { arg1, arg2 });
-        }
+            => new Transition(TransitionType.Inner, aTargetStateType, new object[] { arg1, arg2 });
+
         public static Transition Inner(Type aTargetStateType, object arg1, object arg2, object arg3)
-        {
-            return new Transition(TransitionType.Inner, aTargetStateType, new object[] { arg1, arg2, arg3 });
-        }
+            => new Transition(TransitionType.Inner, aTargetStateType, new object[] { arg1, arg2, arg3 });
+
         public static Transition Inner(Type aTargetStateType, object[] args)
-        {
-            return new Transition(TransitionType.Inner, aTargetStateType, args);
-        }
+            => new Transition(TransitionType.Inner, aTargetStateType, args);
 
         public static Transition Inner<TargetStateType>() where TargetStateType : State
-        {
-            return Inner(typeof(TargetStateType), null);
-        }
+            => Inner(typeof(TargetStateType), null);
+
         public static Transition Inner<TargetStateType>(object arg1) where TargetStateType : State
-        {
-            return Inner(typeof(TargetStateType), arg1);
-        }
+            => Inner(typeof(TargetStateType), arg1);
+
         public static Transition Inner<TargetStateType>(object arg1, object arg2) where TargetStateType : State
-        {
-            return Inner(typeof(TargetStateType), arg1, arg2);
-        }
+            => Inner(typeof(TargetStateType), arg1, arg2);
+
         public static Transition Inner<TargetStateType>(object arg1, object arg2, object arg3) where TargetStateType : State
-        {
-            return Inner(typeof(TargetStateType), arg1, arg2, arg3);
-        }
+            => Inner(typeof(TargetStateType), arg1, arg2, arg3);
+
         public static Transition Inner<TargetStateType>(object[] args) where TargetStateType : State
-        {
-            return Inner(typeof(TargetStateType), args);
-        }
+            => Inner(typeof(TargetStateType), args);
 
         // InnerEntry transition functions
 
         public static Transition InnerEntry(Type aTargetStateType)
-        {
-            return new Transition(TransitionType.InnerEntry, aTargetStateType, null);
-        }
+            => new Transition(TransitionType.InnerEntry, aTargetStateType, null);
+
         public static Transition InnerEntry(Type aTargetStateType, object arg1)
-        {
-            return new Transition(TransitionType.InnerEntry, aTargetStateType, new object[] { arg1 });
-        }
+            => new Transition(TransitionType.InnerEntry, aTargetStateType, new object[] { arg1 });
+
         public static Transition InnerEntry(Type aTargetStateType, object arg1, object arg2)
-        {
-            return new Transition(TransitionType.InnerEntry, aTargetStateType, new object[] { arg1, arg2 });
-        }
+            => new Transition(TransitionType.InnerEntry, aTargetStateType, new object[] { arg1, arg2 });
+
         public static Transition InnerEntry(Type aTargetStateType, object arg1, object arg2, object arg3)
-        {
-            return new Transition(TransitionType.InnerEntry, aTargetStateType, new object[] { arg1, arg2, arg3 });
-        }
+            => new Transition(TransitionType.InnerEntry, aTargetStateType, new object[] { arg1, arg2, arg3 });
+
         public static Transition InnerEntry(Type aTargetStateType, object[] args)
-        {
-            return new Transition(TransitionType.InnerEntry, aTargetStateType, args);
-        }
+            => new Transition(TransitionType.InnerEntry, aTargetStateType, args);
+
 
         public static Transition InnerEntry<TargetStateType>() where TargetStateType : State
-        {
-            return InnerEntry(typeof(TargetStateType), null);
-        }
+            => InnerEntry(typeof(TargetStateType), null);
+
         public static Transition InnerEntry<TargetStateType>(object arg1) where TargetStateType : State
-        {
-            return InnerEntry(typeof(TargetStateType), arg1);
-        }
+            => InnerEntry(typeof(TargetStateType), arg1);
+
         public static Transition InnerEntry<TargetStateType>(object arg1, object arg2) where TargetStateType : State
-        {
-            return InnerEntry(typeof(TargetStateType), arg1, arg2);
-        }
+            => InnerEntry(typeof(TargetStateType), arg1, arg2);
+
         public static Transition InnerEntry<TargetStateType>(object arg1, object arg2, object arg3) where TargetStateType : State
-        {
-            return InnerEntry(typeof(TargetStateType), arg1, arg2, arg3);
-        }
+            => InnerEntry(typeof(TargetStateType), arg1, arg2, arg3);
+
         public static Transition InnerEntry<TargetStateType>(object[] args) where TargetStateType : State
-        {
-            return InnerEntry(typeof(TargetStateType), args);
-        }
+            => InnerEntry(typeof(TargetStateType), args);
+
 
         // Sibling transition functions
 
         public static Transition Sibling(Type aTargetStateType)
-        {
-            return new Transition(TransitionType.Sibling, aTargetStateType, null);
-        }
+            => new Transition(TransitionType.Sibling, aTargetStateType, null);
+
         public static Transition Sibling(Type aTargetStateType, object arg1)
-        {
-            return new Transition(TransitionType.Sibling, aTargetStateType, new object[] { arg1 });
-        }
+            => new Transition(TransitionType.Sibling, aTargetStateType, new object[] { arg1 });
+
         public static Transition Sibling(Type aTargetStateType, object arg1, object arg2)
-        {
-            return new Transition(TransitionType.Sibling, aTargetStateType, new object[] { arg1, arg2 });
-        }
+            => new Transition(TransitionType.Sibling, aTargetStateType, new object[] { arg1, arg2 });
+
         public static Transition Sibling(Type aTargetStateType, object arg1, object arg2, object arg3)
-        {
-            return new Transition(TransitionType.Sibling, aTargetStateType, new object[] { arg1, arg2, arg3 });
-        }
+            => new Transition(TransitionType.Sibling, aTargetStateType, new object[] { arg1, arg2, arg3 });
+
         public static Transition Sibling(Type aTargetStateType, object[] args)
-        {
-            return new Transition(TransitionType.Sibling, aTargetStateType, args);
-        }
+            => new Transition(TransitionType.Sibling, aTargetStateType, args);
+
 
         public static Transition Sibling<TargetStateType>() where TargetStateType : State
-        {
-            return Sibling(typeof(TargetStateType), null);
-        }
+            => Sibling(typeof(TargetStateType), null);
+
         public static Transition Sibling<TargetStateType>(object arg1) where TargetStateType : State
-        {
-            return Sibling(typeof(TargetStateType), arg1);
-        }
+            => Sibling(typeof(TargetStateType), arg1);
+
         public static Transition Sibling<TargetStateType>(object arg1, object arg2) where TargetStateType : State
-        {
-            return Sibling(typeof(TargetStateType), arg1, arg2);
-        }
+            => Sibling(typeof(TargetStateType), arg1, arg2);
+
         public static Transition Sibling<TargetStateType>(object arg1, object arg2, object arg3) where TargetStateType : State
-        {
-            return Sibling(typeof(TargetStateType), arg1, arg2, arg3);
-        }
+            => Sibling(typeof(TargetStateType), arg1, arg2, arg3);
+
         public static Transition Sibling<TargetStateType>(object[] args) where TargetStateType : State
-        {
-            return Sibling(typeof(TargetStateType), args);
-        }
+            => Sibling(typeof(TargetStateType), args);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -403,38 +358,32 @@ namespace Hsm
     public class StateMachine
     {
         private List<State> mStateStack = new List<State>();
-        private object mOwner = null;
-        private TraceLevel mTraceLevel = TraceLevel.None;
         private Type mInitialStateType;
 
+        public object Owner { get; private set; } = null;
+        public TraceLevel TraceLevel { get; set; } = TraceLevel.None;
+
+        [Obsolete("Use TraceLevel instead")]
+        public int DebugLogLevel { get { return (int)TraceLevel; } set { TraceLevel = (TraceLevel)value; } }
+
         public void Init<InitialStateType>(object aOwner = null) where InitialStateType : State
-        {
-            Init(typeof(InitialStateType), aOwner);
-        }
+            => Init(typeof(InitialStateType), aOwner);
 
         public void Init(Type aInitialStateType, object aOwner = null)
         {
-            mOwner = aOwner;
+            Owner = aOwner;
             mInitialStateType = aInitialStateType;
         }
 
         //@TODO: Add Dipose/Finalize that calls this
-        public void Shutdown()
-        {
-            Stop();
-        }
+        public void Shutdown() => Stop();
 
         // Stopping the state machine means popping the state stack so that all OnExits get called. Note that
         // calling Update afterwards will start up the state machine again (starting with the initial state).
-        public void Stop()
-        {
-            PopStatesFromDepth(0);
-        }
+        public void Stop() => PopStatesFromDepth(0);
 
-        public bool IsStarted()
-        {
-            return mStateStack.Count > 0; // Always has at least one state on the stack if started
-        }
+        // Always has at least one state on the stack if started
+        public bool IsStarted() => mStateStack.Count > 0;
 
         public void Update(float aDeltaTime)
         {
@@ -458,7 +407,7 @@ namespace Hsm
             {
                 if (loopCountdown == 4) // Something's wrong, start logging
                 {
-                    mTraceLevel = TraceLevel.Diagnostic;
+                    TraceLevel = TraceLevel.Diagnostic;
                 }
                 isFinishedTransitioning = ProcessStateTransitionsOnce();
             }
@@ -473,9 +422,9 @@ namespace Hsm
         {
             foreach (State state in mStateStack)
             {
-                #pragma warning disable CS0618
+#pragma warning disable CS0618
                 state.PerformStateActions(aDeltaTime);
-                #pragma warning restore CS0618
+#pragma warning restore CS0618
             }
         }
 
@@ -491,18 +440,11 @@ namespace Hsm
             UpdateStates(aDeltaTime);
         }
 
-        public object Owner { get { return mOwner; } }
-        public TraceLevel TraceLevel { get { return mTraceLevel; } set { mTraceLevel = value; } }
-
-        [Obsolete("Use TraceLevel instead")]
-        public int DebugLogLevel { get { return (int)TraceLevel; } set { TraceLevel = (TraceLevel)value; } }
-
         public StateType FindState<StateType>() where StateType : State
         {
             foreach (State state in mStateStack)
             {
-                StateType st = state as StateType;
-                if (st != null)
+                if (state is StateType st)
                     return st;
             }
             return null;
@@ -511,14 +453,11 @@ namespace Hsm
         public StateType GetState<StateType>() where StateType : State
         {
             StateType result = FindState<StateType>();
-            Debug.Assert(result != null, string.Format("Failed to get state on stack: {0}", typeof(StateType)));
+            Debug.Assert(result != null, $"Failed to get state on stack: {typeof(StateType)}");
             return result;
         }
 
-        public bool IsInState<StateType>() where StateType : State
-        {
-            return FindState<StateType>() != null;
-        }
+        public bool IsInState<StateType>() where StateType : State => FindState<StateType>() != null;
 
         public State FindStateAtDepth(int aDepth)
         {
@@ -528,17 +467,14 @@ namespace Hsm
         }
 
         public State FindStateAtDepth<StateType>(int aDepth) where StateType : State
-        {
-            return FindStateAtDepth(aDepth) as StateType;
-        }
+            => FindStateAtDepth(aDepth) as StateType;
 
         public StateType FindOuterStateFromDepth<StateType>(int aDepth) where StateType : State
         {
             Debug.Assert(aDepth >= 0 && aDepth < mStateStack.Count);
             for (int d = aDepth - 1; d >= 0; --d)
             {
-                StateType st = mStateStack[d] as StateType;
-                if (st != null)
+                if (mStateStack[d] is StateType st)
                     return st;
             }
             return null;
@@ -549,31 +485,15 @@ namespace Hsm
             Debug.Assert(aDepth >= 0 && aDepth < mStateStack.Count);
             for (int d = aDepth + 1; d < mStateStack.Count; ++d)
             {
-                StateType st = mStateStack[d] as StateType;
-                if (st != null)
+                if (mStateStack[d] is StateType st)
                     return st;
             }
             return null;
         }
 
-        public string GetStateStackAsString()
-        {
-            var s = new StringBuilder();
-            foreach (State state in mStateStack)
-            {
-                if (s.Length > 0)
-                {
-                    s.Append(" / ");
-                }
-                s.Append(state.GetType().ToString());
-            }
-            return s.ToString();
-        }
+        public string GetStateStackAsString() => string.Join(" / ", mStateStack);
 
-        public List<State> GetStateStack()
-        {
-            return mStateStack;
-        }
+        public List<State> GetStateStack() => mStateStack;
 
         // State Stack Visitor functions
 
@@ -581,32 +501,24 @@ namespace Hsm
         public delegate bool VisitState<StateType>(StateType aState);
 
         public void VisitOuterToInner<StateType>(VisitState<StateType> aVisitor) where StateType : State
-        {
-            VisitStates<StateType>(aVisitor, mStateStack);
-        }
+            => VisitStates(aVisitor, mStateStack);
 
         public void VisitInnerToOuter<StateType>(VisitState<StateType> aVisitor) where StateType : State
-        {
-            VisitStates<StateType>(aVisitor, CreateReverseIterator(mStateStack));
-        }
+            => VisitStates(aVisitor, CreateReverseIterator(mStateStack));
 
         // State Stack Invoker functions - use to invoke a named method with arbitrary args on the
         // state stack. The only restriction is that the method return bool: true to keep invoking
         // on the state stack, false to stop. Note that this uses reflection, which can be costly.
 
         public void InvokeOuterToInner(string aMethodName, params object[] aArgs)
-        {
-            InvokeStates(aMethodName, aArgs, mStateStack);
-        }
+            => InvokeStates(aMethodName, aArgs, mStateStack);
 
         public void InvokeInnerToOuter(string aMethodName, params object[] aArgs)
-        {
-            InvokeStates(aMethodName, aArgs, CreateReverseIterator(mStateStack));
-        }
+            => InvokeStates(aMethodName, aArgs, CreateReverseIterator(mStateStack));
 
         // PRIVATE
 
-        static private IEnumerable<T> CreateReverseIterator<T>(IList<T> aList)
+        private static IEnumerable<T> CreateReverseIterator<T>(IList<T> aList)
         {
             int count = aList.Count;
             for (int i = count - 1; i >= 0; --i)
@@ -639,12 +551,12 @@ namespace Hsm
 
         private void LogTransition(TraceLevel aTraceLevel, int aDepth, string aTransitionName, Type aTargetStateType)
         {
-            if (mTraceLevel < aTraceLevel)
+            if (TraceLevel < aTraceLevel)
                 return;
 
             string s = string.Format("HSM [{0}]:{1}{2,-11}{3}",
-                (mOwner != null ? mOwner : "NoOwner"),
-                new String(' ', aDepth),
+                Owner ?? "NoOwner",
+                new string(' ', aDepth),
                 aTransitionName,
                 aTargetStateType);
 
@@ -671,16 +583,16 @@ namespace Hsm
 
                 if (!haveArgs && expectsArgs)
                 {
-                    Debug.Fail(String.Format("State {0} expects args, but none were passed in via Transition", stateName));
+                    Debug.Fail($"State {stateName} expects args, but none were passed in via Transition");
                 }
                 else if (haveArgs && !expectsArgs)
                 {
-                    Debug.Fail(String.Format("State {0} does not expect args, but some were passed in via Transition", stateName));
+                    Debug.Fail($"State {stateName} does not expect args, but some were passed in via Transition");
                 }
             }
             else if (haveArgs)
             {
-                Debug.Fail(String.Format("Args are being passed via Transition to State {0}, but State doesn't implement OnEnter(params)", stateName));
+                Debug.Fail($"Args are being passed via Transition to State {stateName}, but State doesn't implement OnEnter(params)");
             }
 #endif
 
@@ -721,15 +633,9 @@ namespace Hsm
             mStateStack.RemoveRange(aStartDepthInclusive, endDepth - aStartDepthInclusive + 1);
         }
 
-        private bool HasStateAtDepth(int aDepth)
-        {
-            return aDepth < mStateStack.Count;
-        }
+        private bool HasStateAtDepth(int aDepth) => aDepth < mStateStack.Count;
 
-        private State GetStateAtDepth(int aDepth)
-        {
-            return aDepth < mStateStack.Count ? mStateStack[aDepth] : null;
-        }
+        private State GetStateAtDepth(int aDepth) => aDepth < mStateStack.Count ? mStateStack[aDepth] : null;
 
         // Returns true if state stack is unchanged after calling EvaluateTransition on each state (from outer to inner)
         private bool ProcessStateTransitionsOnce()
@@ -743,9 +649,9 @@ namespace Hsm
             for (int currDepth = 0; currDepth < mStateStack.Count; ++currDepth)
             {
                 State currState = mStateStack[currDepth];
-                #pragma warning disable CS0618
+#pragma warning disable CS0618
                 Transition trans = currState.EvaluateTransitions();
-                #pragma warning restore CS0618
+#pragma warning restore CS0618
                 switch (trans.TransitionType)
                 {
                     case TransitionType.None:
@@ -777,7 +683,6 @@ namespace Hsm
                         PopStatesFromDepth(currDepth);
                         PushState(trans.TargetStateType, trans.Args, currDepth);
                         return false; // State stack has changed, evaluate from root again
-
                 }
             }
 

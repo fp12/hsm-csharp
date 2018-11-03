@@ -3,7 +3,7 @@
 // Would be in a file named Player.cs
 namespace Sample1
 {
-    partial class Player
+    internal partial class Player
     {
         public partial class PlayerHsm { }
 
@@ -53,7 +53,7 @@ namespace Sample1
     using Hsm;
     using PlayerState = Hsm.StateWithOwner<Player>;
 
-    partial class Player
+    internal partial class Player
     {
         public partial class PlayerHsm
         {
@@ -71,7 +71,7 @@ namespace Sample1
                 }
             }
 
-            class Healthy : PlayerState
+            private class Healthy : PlayerState
             {
                 public override void OnEnter()
                 {
@@ -89,7 +89,7 @@ namespace Sample1
                 }
             }
 
-            class Platforming : PlayerState
+            private class Platforming : PlayerState
             {
                 public override void OnEnter(object[] aArgs)
                 {
@@ -98,9 +98,11 @@ namespace Sample1
 
                     SetStateValue(Owner.StateValue_String, "Goodbye");
 
-                    Foo foo = new Foo();
-                    foo.value1 = 12;
-                    foo.value2 = 13;
+                    Foo foo = new Foo
+                    {
+                        value1 = 12,
+                        value2 = 13
+                    };
                     SetStateValue(Owner.StateValue_Foo, foo);
                 }
 
@@ -117,10 +119,10 @@ namespace Sample1
                     Console.Out.WriteLine("Player's Health: {0}, StateDataBool: {1}", Owner.Health, Owner.StateDataBool);
                 }
 
-                int count;
+                private int count;
             }
 
-            class Driving : PlayerState
+            private class Driving : PlayerState
             {
                 public override void Update(float aDeltaTime)
                 {
@@ -128,7 +130,7 @@ namespace Sample1
                 }
             }
 
-            class RootSibling : PlayerState
+            private class RootSibling : PlayerState
             {
                 public override void OnEnter(object[] aArgs)
                 {
@@ -148,9 +150,9 @@ namespace Sample1
 // Would be in the main program file
 namespace Sample1
 {
-    class TestHsm
+    internal class TestHsm
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Player kid = new Player();
             kid.Init();
