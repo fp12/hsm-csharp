@@ -485,7 +485,7 @@ namespace Hsm
 
         // PRIVATE
 
-        private static IEnumerable<T> CreateReverseIterator<T>(IList<T> aList)
+        private static IEnumerable<T> CreateReverseIterator<T>(List<T> aList)
         {
             int count = aList.Count;
             for (int i = count - 1; i >= 0; --i)
